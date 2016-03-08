@@ -1,0 +1,132 @@
+---
+title: "A First Look at R"
+author: "Joseph Rickert"
+date: "March 22, 2016"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## R is interpreted
+R is an interpretive language. At its most basic, the console can be used as a simple calculator. 
+
+```{r}
+2 + 2 
+```
+Putting ";" after a statement lets you put several statements on the same line.
+```{r}
+log(10); sqrt(99); sin(pi)
+```
+
+## R was built for statistical analysis. 
+Here we draw 1000 numbers from a Normal (Gaussian) distribution with mean 0 and variance 1 and assign them to the vector x all in one line of code.   
+```{r}
+x <- rnorm(1000)
+```   
+Notice that nothing happened. R normally does not give you any output until you ask for it. Here are some basic ways of asking for output. 
+
+```{r}
+head(x, 10)   # Look at the first 10 numbers in the vector x
+tail(x,5)     # Look at the last 5 numbers in the vector xlength(x)     
+length(x)     # To check on the length of x
+summary(x)    # Get a summary of x
+plot(x)       # Produce a scatter plot of x the index (the numbers 1 to 1000)
+hist(x)       # Look at the histogram
+```    
+
+Notice that typing # is the way to introduct a comment.  
+
+Next, we produce a fancier histogram with some color, a superimposed standard normal distribution curve and a "rug" underneath showing where the points are.
+```{r}
+hist(x, freq = FALSE, col = "pink")         
+curve(dnorm,                                    # plot normal density
+      col = "dark blue",                        # set coor of curve
+      lwd=2,                                    # fill in the area under the curve
+      add = TRUE)                               # add curve to existing plot
+rug(x,col="red") 
+```   
+
+## R is rich in built in functions.
+In addition to the mathematical functions sin(), log() etc rnorm(), head(), tail(), length(), summary(), plot(), hist(), curve() are all R functions.
+
+To get help with a function named foo, type ?foo
+```{r}
+?rnorm
+```   
+
+## R is vectorized. 
+There is not so much of a need to write loops in R
+```{r}
+y <- 1:10         # Assign the numbers 1 to 10 to a vector
+y                 # Print the vector
+2 + y; 2 * y      # Perform vector addition and multiplication
+``` 
+## There are lots of built in data sets in R
+Type "data()" to see what data sets are available. The output which will appear under a new tab when you type this in the IDE depends on what packages you have loaded. Type data(ds_name) to load the data set. Then type ds_name to look at it
+```{r}
+data()
+data(mtcars)
+help(mtcars)      #  or type ?mtcars
+head(mtcars)      #  to look at the first 6 rows
+```
+The fundamental data structure for doing statistical analysis is a data frame. 
+mtcars is a data frame. You can check this with the class() function.
+```{r}
+class(mtcars)     # To check on the class of an R object
+class(x)
+```
+
+## R shines at exploratory data analysis
+                     
+Use the with() function to work with the variables in the data frame
+```{r}
+with(mtcars,cor(drat,mpg))        
+# There is a positive correlation beteen therear axel ratio and mpg!!
+```
+Use $ to refer directly to the variables in the data frame mtcars.    
+```{r}
+plot(mtcars$drat,mtcars$mpg)      
+```      
+
+Notice this is the same plot function we used above for 1 variable!
+    
+
+
+## R is really vectorized
+Look at all of the correlations
+```{r}
+cor(mtcars)
+```
+
+The sapply() function applies the scale() function to every column in the data frame simultaneously.
+``` {r}
+df <-sapply(mtcars,scale)         # Center and scale all of the variables
+boxplot(df, col="yellow")         # Compare the distributions of the variables
+```
+
+## Fit a simple regression model
+```{r}
+reg1 <- lm(mtcars$mpg ~ mtcars$drat)
+summary(reg1)        
+```
+Notice that the same function summary() we used above to give us the summary of a vector is used to give us a summary of the regression model re
+```{r}
+anova(reg1)          # Standard analysis of variance table
+
+# Plot the data with the regression line added
+plot(mtcars$drat,mtcars$mpg, main="Regression Model")
+abline(reg1,col="red")
+par(mfrow=c(2,2))    # Some code to put the 4 plots together
+plot(reg1) 
+str(reg1)            # Look at the model object
+reg1$coefficients    # Pull out the coefficients
+```
+
+## Clean up
+```{r}
+rm(mtcars)           # Remove mtcars
+rm(list=ls())        # Remove everything: USE WITH GREAT CARE!!
+```
+
+
+

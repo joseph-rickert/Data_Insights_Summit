@@ -1,0 +1,94 @@
+---
+title: "Time_Series"
+author: "Joseph Rickert"
+date: "March 22, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## BASIC TIME SERIES FORECASTING WITH R
+This module provides an introduction to time series forecasting using some of the high level functions frovided by R.
+
+### Load the packages required
+```{r}
+library(dplyr)             # For data manipulation
+library(reshape2)          # Also for data manipulation
+library(xts)               # For creating time series objects
+library(forecast)          # For automatic forecasting
+library(ggplot2)           # For visualization
+```  
+### Fetch the data and shape it for analysis
+We will use the IBM stock data that we downloaded from Hahoo Finance and saved in a .csv file in a previous module.   
+```{r}    
+# Read the IBM data from the .csv file
+dir <- "C:/DATA/IBM"
+fileName <- "IBM.stock.csv"
+file <- file.path(dir,fileName)
+
+IBM <- read.csv(file)
+head(IBM,2)
+tail(IBM,2)
+
+# Filter out data before 2001
+IBM2 <- filter(IBM, as.Date(Date) > as.Date('2000-01-01'))
+# Select only Date and Closing Price
+IBM2 <- select(IBM2,Date,Close)
+head(IBM2,2)
+sapply(IBM2,class)
+# Make Date into a Date object
+IBM2 <- mutate(IBM2, Date = as.Date(Date))
+# Sort in ascending order
+IBM2 <- arrange(IBM2,Date)
+head(IBM2,2)
+```
+### Create a Time Series Object
+We formulate the IBM data as a time series object and then extract a small set of the data to use for training a forecasting model. We will not use the entire series to train the model so we can compare the forecasted prices with the actual recorded values.
+```{r}
+# Build a time series object
+IBM_ts <- xts(IBM2$Close,order.by=IBM2$Date)
+head(IBM_ts)
+plot(IBM_ts)
+
+# Narrow down the time series for analysis
+IBM_ts2 <- IBM_ts['2012-01/2013']
+plot(IBM_ts2)
+```  
+### Fit an ARIMA Model and Forecast
+We use the functions int the forecast package to futomatically fit an Autoregressive Integrated Moving Average model and generate a forecast.   
+```{r}
+# Automatically fit an ARIMA Model
+fit <- auto.arima(IBM_ts2)
+summary(fit)
+
+# Generate and automatic forecast
+fore <- forecast(fit)
+plot(fore)
+fore
+```
+### Plot the Data with the Forecast
+We build a data frame to containg the forecasted results along with the relevant portion of the actual IBM stock price data.
+```{r}
+# Build a common data frame for forecast
+Jan2014<- IBM_ts['2014-01']
+Jan_data <- as.data.frame(Jan2014)
+row.names(Jan_data)
+res <- data.frame(row.names(Jan_data)[1:10],Jan2014[1:10,1],
+                  fore$mean,fore$lower[,1],
+                  fore$upper[,1],
+                  row.names = NULL)
+names(res) <- c("Date", "Actual","Point","Lower","Upper")
+res
+
+
+meltdf <- melt(res,id="Date")
+p <- ggplot(meltdf,aes(x=Date,y=value,colour=variable,group=variable)) 
+p +  geom_line() + geom_point() +
+  ylab("Closing Prices") +
+  ggtitle("Forecast for IBM Stock")
+```   
+We have just scratched the surface of R's time series capabilities. For an over of all that is available in R look at the CRAN Task View: Time Series Analysis which can be found here: https://cran.r-project.org/web/views/TimeSeries.html
+
+For a complete introductory time series course usng R seee the online book from  Rob J Hyndman and George Athanasopoulos: https://www.otexts.org/fpp

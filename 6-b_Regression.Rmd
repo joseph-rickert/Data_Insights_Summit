@@ -1,0 +1,169 @@
+---
+title: "Regression"
+author: "Joseph Rickert"
+date: "March 22, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Regression Analysis
+This module takes you the process of fitting a multiple regression model. The data come from the UCI machine Learning Repository. The data is described here:
+https://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.names, and here: http://cs.nyu.edu/courses/fall00/G22.3033-001/weka/weka-3-0-2/data/auto-mpg.arff
+
+### Setup   
+Here we load the required libraries and a user defined function  
+```{r}
+library(ggplot2)
+library(dplyr)
+library(corrplot)
+
+# Function to divide data into training, and test sets 
+index <- function(data=data,pctTrain=0.7)
+{
+  # fcn to create indices to divide data into random 
+  # training, validation and testing data sets
+  N <- nrow(data)                                     
+  train <- sample(N, pctTrain*N)                              
+  test <- setdiff(seq_len(N),train) 
+  Ind <- list(train=train,test=test)
+  return(Ind)
+} 
+
+```  
+
+### DATA 
+We fetch data from the UCI MAchine Learning Repository
+```{r}
+url <-"https://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data"
+mpg <- read.table(url,stringsAsFactors = FALSE,na.strings="?")
+
+# For later use: write to disk and read in again
+write.csv(mpg,"mpg_orig.csv",row.names=FALSE)
+mpg <- read.csv("mpg_orig.csv")
+```  
+### Data Preparation
+```{r}
+#Look at the data and reset some of the data types
+names(mpg) <- c("mpg","cyl","disp","hp","weight","accel","year","origin","name")
+head(mpg)
+dim(mpg)
+
+# Count the numberof missing values in the data
+length(which(is.na(mpg))==TRUE)
+# Remove the missing values since there are only six of them
+# In a serious work you might want to think about imputing 
+# or setimating the missing values
+mpg <- na.omit(mpg)
+
+sapply(mpg,class)
+summary(mpg)
+mpg <- mutate(mpg, hp = as.numeric(hp),
+              year = as.factor(year),
+              origin = as.factor(origin))
+sapply(mpg,class)
+``` 
+
+### Exploratory Data Analysis
+In this section we look at numerical summaries of the data as well as various plots to visualize relationships among the variables
+```{r}
+summary(mpg)
+# Look at correlations among the numeric variables
+mpg.num <- select(mpg,mpg,cyl,disp,hp,weight,accel)
+cor(mpg.num)
+
+corrplot(cor(mpg.num), method="ellipse")
+
+# Look at the at pairwise relationships for continuous variables
+pairs(mpg[,c(1,3:6)],                    # pairs is function that produces a maatrix of scatter plots
+      panel=function(x,y){               # define a function panel for the content of the matrix 
+        points(x,y, col="light blue")                       # plot the points
+        abline(lm(y~x), lty=2,col="red") # add a linear regression 
+      },
+      diag.panel=function(x){            # define a new panel for the diagonals
+        par(new=T)
+        hist(x,main="",axes=F,nclass=12) # put a histogram on each diagonal
+      }
+)
+
+# Look at distribution of mpg for discrete variables
+# mpg by cyl
+p1 <- ggplot(mpg, aes(factor(cyl),mpg))
+p1 + geom_boxplot()
+
+# Plot mpg as a function of origin
+# origin: 1 = USA, 2 = Europe, 3 = Japan
+p2 <- ggplot(mpg, aes(origin,mpg))
+p2 + geom_boxplot()
+
+# Plot mpg by weight and origin
+p3 <- ggplot(mpg, aes(weight,mpg,col=origin))
+p3 + geom_point()
+
+# mpg by year
+p4 <- ggplot(mpg, aes(year,mpg))
+p4 + geom_boxplot()
+
+```      
+
+### Fit Regression Models
+In this section we divide randomly divide the data into training and test sets and then fit several regression models to the training data. Holding out some data enables us to assess the performance of these models by seeing how well they predict mpg for the test data. This kind of process is essential if you want to get an idea of how well the model will perform on data that it hasn't seen before. 
+
+The function, index, which is given above randomly splits the mpg data into two subsets: train and test. mpg[ins$train,] means index into the mpg data and return all of the columns of mpg but only the rows to be used for training the model.  
+
+We select the model that has the best adjusted R squared value.
+The first model uses just the numeric data.
+```{r}
+ind <- index(mpg)  # Split the mpg data into training and test data.
+form.1 <- formula("mpg ~ cyl + disp + hp + weight + accel")
+lm.fit.1  <- lm(formula=form.1,data=mpg[ind$train,])   # Build the model
+summary(lm.fit.1)
+```   
+The second model looks at the effect of year. Note that the - 1 in the formula instructs R to build a model without an intercept term. This is an example of a "fixed effects model".
+```{r}
+form.2 <- formula("mpg ~ cyl + disp + hp + weight + accel + year -1" )
+lm.fit.2  <- lm(formula=form.2,data=mpg[ind$train,])   # Build the model
+summary(lm.fit.2)
+```   
+The third model looks at the effect of origin.
+```{r}
+form.3 <- formula("mpg ~ cyl + disp + hp + weight + accel + origin -1" )
+lm.fit.3  <- lm(formula=form.3,data=mpg[ind$train,])   # Build the model
+summary(lm.fit.3)
+```   
+### Model Diagnostics
+Model 2 had the best adjusted R squared. In this section we create the standard model diagnostic plots to evaluate how well the model fits the assumptions underlying regressin models. Look here http://www.stat.columbia.edu/~martin/W2024/R7.pdf for some information on interpreting the diagnostic plots. Except for a few outliers flagged by by the plotting software everything looks pretty good.
+```{r}
+# Plot the regression diagnostics
+par(mfrow=c(2,2))
+c <- plot(lm.fit.2)
+par(mfrow=c(1,1))
+
+# Look at the outliers flagged in the diagnostic plots
+outliers <- c(14,243,332,389)
+mpg[outliers,]
+``` 
+### Assess Model Performance
+Here we get an idea of how well the model will do on new data by using the predict function to "score" the new data set. We then plot the actual reported values of MPG against the values predicted by the regression with confidence intervals.
+
+```{r}
+predictions <- predict(lm.fit.2,mpg[ind$test,],se.fit=TRUE,interval="prediction")
+# Create a data frame to hold the predictions
+df <- data.frame(y = mpg[ind$test,]$mpg, predictions)
+head(df,2)
+
+#Plot predictions vs actuals 
+# error bars = 1 standard deviation
+p5 <- ggplot(df, aes(x = y, y = fit.fit))
+p5 + geom_errorbar(aes(ymin = fit.lwr, ymax = fit.upr), width = .1) +
+  geom_point() + 
+  geom_abline(intercept = 0, slope = 1, linetype=2) +
+  xlab("Reported MPG") +
+  ylab("Predicted MPG") +
+  ggtitle("95% CIs for Predictions")
+```     
+
+This model looks pretty good! The 45 degree line, which indicates a perfect predictions, is mostly covered bu the confidence intervals. For homework, try creating some more exploratory plots and building additional regression models. What happens when you include both year and origin in a model?
+
+
